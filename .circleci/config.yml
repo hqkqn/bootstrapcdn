@@ -1,6 +1,10 @@
-common: &common
+version: 2
+
+common_image: &common_image
   docker:
-    - image: circleci/node:lts
+    - image: circleci/node:10
+
+common_steps: &common_steps
   steps:
     - checkout
     - run: node --version
@@ -10,24 +14,15 @@ common: &common
         key: npm-deps-{{ .Branch }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "package-lock.json" }}
     - run: npm ci
     - save_cache:
-        key: repo-{{ .Environment.CIRCLE_SHA1 }}
-        paths:
-          - /home/circleci/project/
-    - save_cache:
         key: npm-deps-{{ .Branch }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "package-lock.json" }}
         paths:
           - /home/circleci/.npm
 
-version: 2
 jobs:
-  install:
-    <<: *common
-
   test:
-    <<: *common
+    <<: *common_image
+    <<: *common_steps
     steps:
-      - restore_cache:
-          key: repo-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run tests
           command: npm run test-with-coverage
@@ -37,34 +32,25 @@ jobs:
           when: on_success
 
   test-functional-debug:
-    <<: *common
+    <<: *common_image
+    <<: *common_steps
     steps:
-      - restore_cache:
-          key: repo-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run functional tests (debug)
           command: npm run mocha:only-functional:dev
 
   test-functional-prod:
-    <<: *common
+    <<: *common_image
+    <<: *common_steps
     steps:
-      - restore_cache:
-          key: repo-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run functional tests (production)
           command: npm run mocha:only-functional:prod
 
 workflows:
   version: 2
-  install-and-test:
+  test:
     jobs:
-      - install
-      - test:
-          requires:
-            - install
-      - test-functional-debug:
-          requires:
-            - install
-      - test-functional-prod:
-          requires:
-            - install
+      - test
+      - test-functional-debug
+      - test-functional-prod
